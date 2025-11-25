@@ -1,0 +1,45 @@
+{
+  "doctype": "DocType",
+  "name": "HL7 Service Code Mapping",
+  "module": "Healthcare",
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "service_code",
+      "label": "Service Code",
+      "fieldtype": "Data",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "template_dt",
+      "label": "Template DocType",
+      "fieldtype": "Link",
+      "options": "DocType",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "template_dn",
+      "label": "Template Name",
+      "fieldtype": "Data",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "description",
+      "label": "Description",
+      "fieldtype": "Small Text"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1
+    }
+  ],
+  "is_submittable": 0,
+  "track_changes": 1
+}

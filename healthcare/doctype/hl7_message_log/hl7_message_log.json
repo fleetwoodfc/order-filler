@@ -1,0 +1,63 @@
+{
+  "doctype": "DocType",
+  "name": "HL7 Message Log",
+  "module": "Healthcare",
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "raw_message",
+      "label": "Raw HL7 Message",
+      "fieldtype": "Text",
+      "reqd": 1
+    },
+    {
+      "fieldname": "message_type",
+      "label": "Message Type",
+      "fieldtype": "Data",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "patient",
+      "label": "Patient",
+      "fieldtype": "Link",
+      "options": "Patient",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "options": "Pending\nProcessed\nFailed",
+      "default": "Pending",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "note",
+      "label": "Note",
+      "fieldtype": "Small Text"
+    },
+    {
+      "fieldname": "error",
+      "label": "Error",
+      "fieldtype": "Small Text"
+    },
+    {
+      "fieldname": "created_on",
+      "label": "Created On",
+      "fieldtype": "Datetime",
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1
+    }
+  ],
+  "track_changes": 1,
+  "autoname": "hash",
+  "fields_translatable": []
+}

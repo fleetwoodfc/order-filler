@@ -1,0 +1,106 @@
+{
+  "doctype": "DocType",
+  "name": "Radiology Procedure Request",
+  "module": "Healthcare",
+  "custom": 1,
+  "fields": [
+    {
+      "fieldname": "patient",
+      "label": "Patient",
+      "fieldtype": "Link",
+      "options": "Patient",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "external_request_id",
+      "label": "External Request ID (RPID)",
+      "fieldtype": "Data",
+      "reqd": 1,
+      "in_list_view": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "placer_order_number",
+      "label": "Placer Order Number",
+      "fieldtype": "Data",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "filler_order_number",
+      "label": "Filler Order Number",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "service_code",
+      "label": "Service Code",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "service_name",
+      "label": "Service Name",
+      "fieldtype": "Data",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "ordering_provider",
+      "label": "Ordering Provider",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "requested_datetime",
+      "label": "Requested Date/Time",
+      "fieldtype": "Datetime"
+    },
+    {
+      "fieldname": "procedure_priority",
+      "label": "Procedure Priority",
+      "fieldtype": "Select",
+      "options": "Routine\nUrgent\nStat\nAsap",
+      "default": "Routine"
+    },
+    {
+      "fieldname": "radiology_accession",
+      "label": "Radiology Accession",
+      "fieldtype": "Link",
+      "options": "Radiology Accession"
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "options": "Pending\nScheduled\nIn Progress\nCompleted\nCancelled",
+      "default": "Pending",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "notes",
+      "label": "Notes",
+      "fieldtype": "Small Text"
+    },
+    {
+      "fieldname": "raw_hl7_message",
+      "label": "Raw HL7 Message",
+      "fieldtype": "Text"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1
+    },
+    {
+      "role": "Healthcare Administrator",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0
+    }
+  ],
+  "track_changes": 1,
+  "autoname": "hash",
+  "fields_translatable": []
+}

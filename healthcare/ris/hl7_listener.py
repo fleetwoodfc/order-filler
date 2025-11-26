@@ -1,21 +1,19 @@
 """
-Simple MLLP HL7 listener for receiving ORM messages and forwarding to processor.
+MLLP HL7 listener updated to use pyHL7 (the `hl7` package) for parsing.
 
 Notes:
-- Requires hl7apy: pip install hl7apy
-- Run under bench/site environment (so frappe import works).
-- Configurable host/port via site_config.json keys:
-    HL7_LISTENER_HOST (default 0.0.0.0)
-    HL7_LISTENER_PORT (default 2575)
-- Listener auto-sends an application ACK after processing.
+- Requires pyHL7: pip install hl7
+- Still compatible with Frappe bench/site environment (imports frappe).
+- The listener passes both the parsed pyHL7 message and the raw message text to the processor.
+- ACK construction is done from the raw MSH line (robust against parser differences).
 """
-
 import socket
 import threading
 import logging
 import time
+from typing import Optional
 
-from hl7apy.parser import parse_message
+import hl7  # pyHL7 (pip package name: hl7)
 
 import frappe
 
@@ -29,6 +27,7 @@ MLLP_END_2 = b"\x0d"  # CR
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 2575
 
+
 def get_config():
     site_config = {}
     try:
@@ -38,6 +37,51 @@ def get_config():
     host = site_config.get("HL7_LISTENER_HOST") or DEFAULT_HOST
     port = int(site_config.get("HL7_LISTENER_PORT") or DEFAULT_PORT)
     return host, port
+
+
+def _find_msh_line(payload: str) -> Optional[str]:
+    """
+    Return the first MSH line from the payload (ER7, lines delimited by \r).
+    """
+    try:
+        for line in payload.split("\r"):
+            if line.startswith("MSH"):
+                return line
+    except Exception:
+        pass
+    return None
+
+
+def _build_ack_from_msh_line(msh_line: Optional[str], ack_text: str = "AA") -> str:
+    """
+    Build a simple MSH+MSA ACK using values parsed from the MSH ER7 line.
+    Falls back to defaults when fields are missing.
+    """
+    try:
+        if not msh_line:
+            # minimal ACK
+            return "MSH|^~\\&||||||ACK||P|2.3\rMSA|AE|\r"
+
+        fields = msh_line.split("|")
+        # fields[0] == 'MSH'
+        # MSH-3 (sending application) -> fields[2]
+        # MSH-4 (sending facility) -> fields[3]
+        # MSH-5 (receiving application) -> fields[4]
+        # MSH-6 (receiving facility) -> fields[5]
+        # MSH-10 (message control id) -> fields[9]
+        sending_app = fields[2] if len(fields) > 2 else "SENDER"
+        sending_fac = fields[3] if len(fields) > 3 else ""
+        recv_app = fields[4] if len(fields) > 4 else "RECEIVER"
+        recv_fac = fields[5] if len(fields) > 5 else ""
+        msg_control_id = fields[9] if len(fields) > 9 else ""
+        ts = frappe.utils.now_datetime().strftime("%Y%m%d%H%M%S")
+        ack_lines = [
+            f"MSH|^~\\&|{recv_app}|{recv_fac}|{sending_app}|{sending_fac}|{ts}||ACK|{msg_control_id}|P|2.3",
+            f"MSA|{ack_text}|{msg_control_id}",
+        ]
+        return "\r".join(ack_lines) + "\r"
+    except Exception:
+        return "MSH|^~\\&||||||ACK||P|2.3\rMSA|AE|\r"
 
 
 class MLLPServer(threading.Thread):
@@ -102,15 +146,27 @@ class MLLPServer(threading.Thread):
         try:
             payload = payload_bytes.decode("utf-8", errors="replace")
             logger.info("Received HL7 payload:\n%s", payload)
-            message = parse_message(payload, validation_level=0)
-            # delegate processing
+
+            # Parse using pyHL7
+            try:
+                parsed = hl7.parse(payload)
+            except Exception:
+                # If parsing fails, parsed will be None and we still pass raw text to processor
+                parsed = None
+
+            # delegate processing; processor will accept either pyHL7 message or raw text
             from healthcare.ris.processor import process_hl7_message
 
-            success = process_hl7_message(message)
+            try:
+                success = process_hl7_message(parsed, raw_message_text=payload)
+            except TypeError:
+                # older processor signature may expect only a parsed message
+                success = process_hl7_message(parsed)
 
-            # build ACK
+            # build ACK from raw MSH line for robustness
+            msh_line = _find_msh_line(payload)
             ack_text = "AA" if success else "AE"
-            ack_msg = self.build_ack(message, ack_text=ack_text)
+            ack_msg = _build_ack_from_msh_line(msh_line, ack_text=ack_text)
             framed = MLLP_START + ack_msg.encode("utf-8") + MLLP_END_1 + MLLP_END_2
             try:
                 conn.sendall(framed)
@@ -120,28 +176,12 @@ class MLLPServer(threading.Thread):
         except Exception:
             logger.exception("Error processing incoming HL7 payload")
 
-    def build_ack(self, incoming_msg, ack_text="AA"):
-        try:
-            msh = incoming_msg.MSH
-            sending_app = msh.MSH3.value if hasattr(msh, "MSH3") else "RIS"
-            sending_fac = msh.MSH4.value if hasattr(msh, "MSH4") else ""
-            recv_app = msh.MSH5.value if hasattr(msh, "MSH5") else "OUR_APP"
-            recv_fac = msh.MSH6.value if hasattr(msh, "MSH6") else ""
-            msg_control_id = msh.MSH10.value if hasattr(msh, "MSH10") else ""
-            ts = frappe.utils.now_datetime().strftime("%Y%m%d%H%M%S")
-            ack_lines = [
-                f"MSH|^~\\&|{recv_app}|{recv_fac}|{sending_app}|{sending_fac}|{ts}||ACK|{msg_control_id}|P|2.3",
-                f"MSA|{ack_text}|{msg_control_id}",
-            ]
-            return "\r".join(ack_lines) + "\r"
-        except Exception:
-            return "MSH|^~\\&||||||ACK||P|2.3\rMSA|AE|\r"
-
 
 def start_listener_thread(host=None, port=None):
     server = MLLPServer(host=host, port=port)
     server.start()
     return server
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
